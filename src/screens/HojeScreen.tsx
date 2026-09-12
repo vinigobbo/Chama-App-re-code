@@ -98,6 +98,8 @@ export default function HojeScreen() {
 
   return (
     <View style={styles.container}>
+      <Text style={styles.saudacao}>Olá, Vinicius</Text>
+
       <View style={styles.streakBox}>
         <Text style={styles.streakNumero}>{streak}</Text>
         <Text style={styles.streakLabel}>dias seguidos</Text>
@@ -185,7 +187,8 @@ export default function HojeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo, paddingTop: 60, paddingHorizontal: 24 },
-  streakBox: { alignItems: 'center', marginBottom: 40 },
+  saudacao: { color: cores.texto, fontFamily: fontes.corpo, fontSize: tamanhos.corpo, marginBottom: 20 },
+  streakBox: { alignItems: 'center', marginBottom: 32 },
   streakNumero: { color: cores.acento, fontFamily: fontes.numero, fontSize: tamanhos.streak },
   streakLabel: { color: cores.textoSuave, fontFamily: fontes.corpo, fontSize: tamanhos.sub, marginTop: 4 },
   secao: { flex: 1 },

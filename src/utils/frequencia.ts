@@ -12,5 +12,5 @@ export function habitoAplicavelNaData(habito: any, dataISO: string) {
     return diffDias % 2 === 0
   }
 
-  return true // 'diario' ou sem frequência definida
+  return true 
 }

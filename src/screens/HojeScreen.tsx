@@ -185,6 +185,8 @@ export default function HojeScreen() {
   )
 }
 
+//poggers
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo, paddingTop: 60, paddingHorizontal: 24 },
   saudacao: { color: cores.texto, fontFamily: fontes.corpo, fontSize: tamanhos.corpo, marginBottom: 20 },

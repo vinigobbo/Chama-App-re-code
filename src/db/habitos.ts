@@ -2,19 +2,37 @@ import { getBanco } from './database'
 
 export async function buscarHabitosAtivos() {
   const db = getBanco()
-  return await db.getAllAsync<{
+  return await db.getAllAsync(
+    'SELECT * FROM habitos WHERE ativo = 1'
+  ) as Array<{
     id: number
     nome: string
     icone: string | null
+    emoji: string | null
+    frequencia_tipo: string
+    frequencia_dias: string | null
+    data_referencia: string | null
     ativo: number
-  }>('SELECT * FROM habitos WHERE ativo = 1')
+  }>
 }
 
-export async function criarHabito(nome: string, icone?: string) {
+export async function criarHabito(
+  nome: string,
+  emoji: string | null,
+  frequenciaTipo: 'diario' | 'semana' | 'intervalo',
+  frequenciaDias: number[] | null,
+  dataReferencia: string
+) {
   const db = getBanco()
   await db.runAsync(
-    'INSERT INTO habitos (nome, icone) VALUES (?, ?)',
-    [nome, icone ?? null]
+    'INSERT INTO habitos (nome, emoji, frequencia_tipo, frequencia_dias, data_referencia) VALUES (?, ?, ?, ?, ?)',
+    [
+      nome,
+      emoji,
+      frequenciaTipo,
+      frequenciaDias ? JSON.stringify(frequenciaDias) : null,
+      dataReferencia,
+    ]
   )
 }
 

@@ -14,10 +14,19 @@ export async function abrirBanco() {
 }
 
 async function migrar(banco: SQLite.SQLiteDatabase) {
-  try {
-    await banco.execAsync('ALTER TABLE metas_semestrais ADD COLUMN emoji TEXT')
-  } catch (e) {
-    // coluna já existe, ignora
+  const colunas = [
+    'ALTER TABLE metas_semestrais ADD COLUMN emoji TEXT',
+    'ALTER TABLE habitos ADD COLUMN emoji TEXT',
+    "ALTER TABLE habitos ADD COLUMN frequencia_tipo TEXT NOT NULL DEFAULT 'diario'",
+    'ALTER TABLE habitos ADD COLUMN frequencia_dias TEXT',
+    'ALTER TABLE habitos ADD COLUMN data_referencia TEXT',
+  ]
+  for (const sql of colunas) {
+    try {
+      await banco.execAsync(sql)
+    } catch (e) {
+      // coluna já existe, ignora
+    }
   }
 }
 

@@ -6,6 +6,9 @@ import { fontes, tamanhos } from '../theme/fonts'
 import { buscarHabitosAtivos, criarHabito, desativarHabito } from '../db/habitos'
 import { buscarRegistrosDeHoje, marcarHabito, desmarcarHabito, calcularStreak } from '../db/registros'
 import ConfirmModal from '../components/ConfirmModal'
+import SugestaoHabitoModal from '../components/SugestaoHabitoModal'
+import FrequenciaSelector, { FrequenciaValor } from '../components/FrequenciaSelector'
+import { HabitoSugerido } from '../data/habitosSugeridos'
 
 function hojeISO() {
   return new Date().toISOString().slice(0, 10)
@@ -14,21 +17,18 @@ function hojeISO() {
 export default function HojeScreen() {
   const [habitos, setHabitos] = useState<any[]>([])
   const [streak, setStreak] = useState(0)
-  const [novoNome, setNovoNome] = useState('')
-  const [mostrarInput, setMostrarInput] = useState(false)
+
+  const [sugestaoVisivel, setSugestaoVisivel] = useState(false)
+  const [criando, setCriando] = useState(false)
+  const [formNome, setFormNome] = useState('')
+  const [formEmoji, setFormEmoji] = useState('')
+  const [formFrequencia, setFormFrequencia] = useState<FrequenciaValor>({ tipo: 'diario', dias: [] })
+
   const [habitoParaExcluir, setHabitoParaExcluir] = useState<{ id: number; nome: string } | null>(null)
 
   async function carregarDados() {
-    const hoje = hojeISO()
-    const lista = await buscarHabitosAtivos()
-    const registros = await buscarRegistrosDeHoje(hoje)
-
-    const habitosComStatus = lista.map(h => ({
-      ...h,
-      feito: registros.some(r => r.habito_id === h.id && r.feito === 1)
-    }))
-
-    setHabitos(habitosComStatus)
+    const lista = await buscarRegistrosDeHoje(hojeISO())
+    setHabitos(lista)
     setStreak(await calcularStreak())
   }
 
@@ -38,7 +38,7 @@ export default function HojeScreen() {
     }, [])
   )
 
-  async function toggleHabito(id: number, feitoAtual: boolean) {
+  async function toggleHabito(id: number, feitoAtual: number) {
     const hoje = hojeISO()
     if (feitoAtual) {
       await desmarcarHabito(id, hoje)
@@ -48,13 +48,41 @@ export default function HojeScreen() {
     await carregarDados()
   }
 
+  function escolherSugestao(sugestao: HabitoSugerido | null) {
+    if (sugestao) {
+      setFormNome(sugestao.nome)
+      setFormEmoji(sugestao.emoji)
+    } else {
+      setFormNome('')
+      setFormEmoji('')
+    }
+    setFormFrequencia({ tipo: 'diario', dias: [] })
+    setSugestaoVisivel(false)
+    setCriando(true)
+  }
+
   async function adicionarHabito() {
-    const nome = novoNome.trim()
+    const nome = formNome.trim()
     if (!nome) return
-    await criarHabito(nome)
-    setNovoNome('')
-    setMostrarInput(false)
+    if (formFrequencia.tipo === 'semana' && formFrequencia.dias.length === 0) return
+
+    await criarHabito(
+      nome,
+      formEmoji.trim() || null,
+      formFrequencia.tipo,
+      formFrequencia.tipo === 'semana' ? formFrequencia.dias : null,
+      hojeISO()
+    )
+
+    cancelarCriacao()
     await carregarDados()
+  }
+
+  function cancelarCriacao() {
+    setCriando(false)
+    setFormNome('')
+    setFormEmoji('')
+    setFormFrequencia({ tipo: 'diario', dias: [] })
   }
 
   function pedirExclusao(id: number, nome: string) {
@@ -78,29 +106,46 @@ export default function HojeScreen() {
       <View style={styles.secao}>
         <View style={styles.secaoHeader}>
           <Text style={styles.secaoTitulo}>hábitos de hoje</Text>
-          <TouchableOpacity onPress={() => setMostrarInput(!mostrarInput)}>
-            <Text style={styles.addBtn}>{mostrarInput ? '×' : '+'}</Text>
+          <TouchableOpacity onPress={() => setSugestaoVisivel(true)}>
+            <Text style={styles.addBtn}>+</Text>
           </TouchableOpacity>
         </View>
 
-        {mostrarInput && (
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.input}
-              placeholder="nome do hábito"
-              placeholderTextColor={cores.textoSuave}
-              value={novoNome}
-              onChangeText={setNovoNome}
-              onSubmitEditing={adicionarHabito}
-            />
-            <TouchableOpacity style={styles.salvarBtn} onPress={adicionarHabito}>
-              <Text style={styles.salvarTxt}>salvar</Text>
-            </TouchableOpacity>
+        {criando && (
+          <View style={styles.form}>
+            <View style={styles.formRow}>
+              <TextInput
+                style={styles.emojiInput}
+                placeholder="🎯"
+                placeholderTextColor={cores.textoSuave}
+                value={formEmoji}
+                onChangeText={setFormEmoji}
+                maxLength={4}
+              />
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="nome do hábito"
+                placeholderTextColor={cores.textoSuave}
+                value={formNome}
+                onChangeText={setFormNome}
+              />
+            </View>
+
+            <FrequenciaSelector valor={formFrequencia} onChange={setFormFrequencia} />
+
+            <View style={styles.formBotoes}>
+              <TouchableOpacity style={styles.cancelarBtn} onPress={cancelarCriacao}>
+                <Text style={styles.cancelarTxt}>cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.salvarBtn} onPress={adicionarHabito}>
+                <Text style={styles.salvarTxt}>salvar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
         {habitos.length === 0 ? (
-          <Text style={styles.vazio}>nenhum hábito cadastrado ainda</Text>
+          <Text style={styles.vazio}>nenhum hábito pra hoje</Text>
         ) : (
           <FlatList
             data={habitos}
@@ -111,21 +156,21 @@ export default function HojeScreen() {
                 onPress={() => toggleHabito(item.id, item.feito)}
                 onLongPress={() => pedirExclusao(item.id, item.nome)}
               >
-                <View style={[
-                  styles.marcador,
-                  item.feito && styles.marcadorAceso
-                ]} />
-                <Text style={[
-                  styles.habitoNome,
-                  item.feito && styles.habitoFeito
-                ]}>
-                  {item.nome}
+                <View style={[styles.marcador, item.feito === 1 && styles.marcadorAceso]} />
+                <Text style={[styles.habitoNome, item.feito === 1 && styles.habitoFeito]}>
+                  {item.emoji ? `${item.emoji}  ` : ''}{item.nome}
                 </Text>
               </TouchableOpacity>
             )}
           />
         )}
       </View>
+
+      <SugestaoHabitoModal
+        visivel={sugestaoVisivel}
+        onFechar={() => setSugestaoVisivel(false)}
+        onEscolher={escolherSugestao}
+      />
 
       <ConfirmModal
         visivel={habitoParaExcluir !== null}
@@ -139,105 +184,36 @@ export default function HojeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: cores.fundo,
-    paddingTop: 60,
-    paddingHorizontal: 24,
-  },
-  streakBox: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  streakNumero: {
-    color: cores.acento,
-    fontFamily: fontes.numero,
-    fontSize: tamanhos.streak,
-  },
-  streakLabel: {
-    color: cores.textoSuave,
-    fontFamily: fontes.corpo,
-    fontSize: tamanhos.sub,
-    marginTop: 4,
-  },
-  secao: {
-    flex: 1,
-  },
-  secaoHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  secaoTitulo: {
-    color: cores.texto,
-    fontFamily: fontes.corpo,
-    fontSize: tamanhos.corpo,
-  },
-  addBtn: {
-    color: cores.acento,
-    fontSize: 28,
-    lineHeight: 28,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
+  container: { flex: 1, backgroundColor: cores.fundo, paddingTop: 60, paddingHorizontal: 24 },
+  streakBox: { alignItems: 'center', marginBottom: 40 },
+  streakNumero: { color: cores.acento, fontFamily: fontes.numero, fontSize: tamanhos.streak },
+  streakLabel: { color: cores.textoSuave, fontFamily: fontes.corpo, fontSize: tamanhos.sub, marginTop: 4 },
+  secao: { flex: 1 },
+  secaoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  secaoTitulo: { color: cores.texto, fontFamily: fontes.corpo, fontSize: tamanhos.corpo },
+  addBtn: { color: cores.acento, fontSize: 28, lineHeight: 28 },
+  form: { gap: 12, marginBottom: 20, backgroundColor: cores.fundoCartao, borderRadius: 12, padding: 16 },
+  formRow: { flexDirection: 'row', gap: 10 },
+  emojiInput: {
+    backgroundColor: cores.fundoInput, color: cores.texto, fontSize: 20,
+    width: 52, textAlign: 'center', borderRadius: 8,
   },
   input: {
-    flex: 1,
-    backgroundColor: cores.fundoInput,
-    color: cores.texto,
-    fontFamily: fontes.corpo,
-    fontSize: tamanhos.corpo,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: cores.fundoInput, color: cores.texto, fontFamily: fontes.corpo,
+    fontSize: tamanhos.corpo, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8,
   },
-  salvarBtn: {
-    backgroundColor: cores.acento,
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-    borderRadius: 8,
-  },
-  salvarTxt: {
-    color: cores.fundo,
-    fontFamily: fontes.corpo,
-    fontSize: tamanhos.sub,
-    fontWeight: '600',
-  },
-  vazio: {
-    color: cores.textoSuave,
-    fontFamily: fontes.corpo,
-    fontSize: tamanhos.sub,
-    textAlign: 'center',
-    marginTop: 40,
-  },
+  formBotoes: { flexDirection: 'row', justifyContent: 'flex-end', gap: 16 },
+  cancelarBtn: { paddingVertical: 12, paddingHorizontal: 4 },
+  cancelarTxt: { color: cores.textoSuave, fontFamily: fontes.corpo, fontSize: tamanhos.sub },
+  salvarBtn: { backgroundColor: cores.acento, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  salvarTxt: { color: cores.fundo, fontFamily: fontes.corpo, fontSize: tamanhos.sub, fontWeight: '600' },
+  vazio: { color: cores.textoSuave, fontFamily: fontes.corpo, fontSize: tamanhos.sub, textAlign: 'center', marginTop: 40 },
   habitoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: cores.fundoInput,
+    flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: cores.fundoInput,
   },
-  marcador: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: cores.textoSuave,
-  },
-  marcadorAceso: {
-    backgroundColor: cores.acento,
-    borderColor: cores.acento,
-  },
-  habitoNome: {
-    color: cores.texto,
-    fontFamily: fontes.corpo,
-    fontSize: tamanhos.corpo,
-  },
-  habitoFeito: {
-    color: cores.textoSuave,
-  },
+  marcador: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: cores.textoSuave },
+  marcadorAceso: { backgroundColor: cores.acento, borderColor: cores.acento },
+  habitoNome: { color: cores.texto, fontFamily: fontes.corpo, fontSize: tamanhos.corpo },
+  habitoFeito: { color: cores.textoSuave },
 })

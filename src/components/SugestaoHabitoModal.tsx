@@ -1,18 +1,18 @@
 import { Modal, View, Text, TouchableOpacity, StyleSheet, SectionList } from 'react-native'
 import { cores } from '../theme/colors'
 import { fontes, tamanhos } from '../theme/fonts'
-import { METAS_SUGERIDAS, MetaSugerida } from '../data/metasSugeridas'
+import { HABITOS_SUGERIDOS, HabitoSugerido } from '../data/habitosSugeridos'
 import { ORDEM_CATEGORIAS, nomeCategoria } from '../data/categorias'
 
 type Props = {
   visivel: boolean
   onFechar: () => void
-  onEscolher: (sugestao: MetaSugerida | null) => void
+  onEscolher: (sugestao: HabitoSugerido | null) => void
 }
 
 function construirSecoes() {
-  const grupos: Record<string, MetaSugerida[]> = {}
-  METAS_SUGERIDAS.forEach(item => {
+  const grupos: Record<string, HabitoSugerido[]> = {}
+  HABITOS_SUGERIDOS.forEach(item => {
     if (!grupos[item.tipo]) grupos[item.tipo] = []
     grupos[item.tipo].push(item)
   })
@@ -21,13 +21,13 @@ function construirSecoes() {
     .map(tipo => ({ title: nomeCategoria(tipo), data: grupos[tipo] }))
 }
 
-export default function SugestaoMetaModal({ visivel, onFechar, onEscolher }: Props) {
+export default function SugestaoHabitoModal({ visivel, onFechar, onEscolher }: Props) {
   return (
     <Modal visible={visivel} transparent animationType="slide" onRequestClose={onFechar}>
       <View style={styles.fundo}>
         <View style={styles.card}>
-          <Text style={styles.titulo}>nova meta</Text>
-          <Text style={styles.subtitulo}>escolha uma sugestão ou crie a sua</Text>
+          <Text style={styles.titulo}>novo hábito</Text>
+          <Text style={styles.subtitulo}>escolha uma sugestão ou crie o seu</Text>
 
           <SectionList
             sections={construirSecoes()}
@@ -45,7 +45,7 @@ export default function SugestaoMetaModal({ visivel, onFechar, onEscolher }: Pro
           />
 
           <TouchableOpacity style={styles.personalizada} onPress={() => onEscolher(null)}>
-            <Text style={styles.personalizadaTexto}>+ criar personalizada</Text>
+            <Text style={styles.personalizadaTexto}>+ criar personalizado</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.cancelar} onPress={onFechar}>

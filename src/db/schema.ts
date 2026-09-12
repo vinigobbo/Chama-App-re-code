@@ -1,9 +1,13 @@
 export const CRIAR_TABELAS = [
   `CREATE TABLE IF NOT EXISTS habitos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome TEXT NOT NULL,
-    icone TEXT,
-    ativo INTEGER NOT NULL DEFAULT 1
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nome TEXT NOT NULL,
+  icone TEXT,
+  emoji TEXT,
+  frequencia_tipo TEXT NOT NULL DEFAULT 'diario',
+  frequencia_dias TEXT,
+  data_referencia TEXT,
+  ativo INTEGER NOT NULL DEFAULT 1
   )`,
 
   `CREATE TABLE IF NOT EXISTS registros_diarios (

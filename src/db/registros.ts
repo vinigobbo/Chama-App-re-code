@@ -1,20 +1,23 @@
 import { getBanco } from './database'
+import { habitoAplicavelNaData } from '../utils/frequencia'
 
 export async function buscarRegistrosDeHoje(data: string) {
   const db = getBanco()
-  const rows = await db.getAllAsync(
-    'SELECT r.*, h.nome FROM registros_diarios r ' +
-    'JOIN habitos h ON h.id = r.habito_id ' +
-    'WHERE r.data = ? AND h.ativo = 1',
+  const habitos = await db.getAllAsync(
+    'SELECT * FROM habitos WHERE ativo = 1'
+  ) as any[]
+
+  const habitosDeHoje = habitos.filter(h => habitoAplicavelNaData(h, data))
+
+  const registros = await db.getAllAsync(
+    'SELECT * FROM registros_diarios WHERE data = ?',
     [data]
-  ) as Array<{
-    id: number
-    habito_id: number
-    data: string
-    feito: number
-    nome: string
-  }>
-  return rows
+  ) as Array<{ id: number; habito_id: number; data: string; feito: number }>
+
+  return habitosDeHoje.map(h => ({
+    ...h,
+    feito: registros.some(r => r.habito_id === h.id && r.feito === 1) ? 1 : 0,
+  }))
 }
 
 export async function marcarHabito(habitoId: number, data: string) {
@@ -24,10 +27,7 @@ export async function marcarHabito(habitoId: number, data: string) {
     [habitoId, data]
   ) as { id: number } | null
   if (existe) {
-    await db.runAsync(
-      'UPDATE registros_diarios SET feito = 1 WHERE id = ?',
-      [existe.id]
-    )
+    await db.runAsync('UPDATE registros_diarios SET feito = 1 WHERE id = ?', [existe.id])
   } else {
     await db.runAsync(
       'INSERT INTO registros_diarios (habito_id, data, feito) VALUES (?, ?, 1)',
@@ -46,21 +46,29 @@ export async function desmarcarHabito(habitoId: number, data: string) {
 
 export async function calcularStreak() {
   const db = getBanco()
-  const totalHabitos = await db.getFirstAsync(
-    'SELECT COUNT(*) as total FROM habitos WHERE ativo = 1'
-  ) as { total: number } | null
-  if (!totalHabitos || totalHabitos.total === 0) return 0
+  const habitos = await db.getAllAsync('SELECT * FROM habitos WHERE ativo = 1') as any[]
+  if (habitos.length === 0) return 0
 
   let streak = 0
   let dia = new Date()
 
   while (true) {
     const dataStr = dia.toISOString().slice(0, 10)
-    const feitos = await db.getFirstAsync(
-      'SELECT COUNT(*) as total FROM registros_diarios WHERE data = ? AND feito = 1',
+    const habitosDoDia = habitos.filter(h => habitoAplicavelNaData(h, dataStr))
+
+    if (habitosDoDia.length === 0) {
+      dia.setDate(dia.getDate() - 1)
+      continue
+    }
+
+    const registros = await db.getAllAsync(
+      'SELECT habito_id FROM registros_diarios WHERE data = ? AND feito = 1',
       [dataStr]
-    ) as { total: number } | null
-    if (feitos && feitos.total >= totalHabitos.total) {
+    ) as Array<{ habito_id: number }>
+
+    const todosFeitos = habitosDoDia.every(h => registros.some(r => r.habito_id === h.id))
+
+    if (todosFeitos) {
       streak++
       dia.setDate(dia.getDate() - 1)
     } else {
@@ -71,15 +79,13 @@ export async function calcularStreak() {
   return streak
 }
 
-export async function buscarDiasAcademia(mes: number, ano: number) {
+export async function buscarDiasAcademiaRange(dataInicio: string, dataFim: string) {
   const db = getBanco()
-  const mesStr = String(mes).padStart(2, '0')
-  const rows = await db.getAllAsync(
+  return await db.getAllAsync(
     'SELECT r.data FROM registros_diarios r ' +
     'JOIN habitos h ON h.id = r.habito_id ' +
     'WHERE h.nome = "academia" AND r.feito = 1 ' +
-    'AND r.data LIKE ?',
-    [`${ano}-${mesStr}-%`]
+    'AND r.data BETWEEN ? AND ?',
+    [dataInicio, dataFim]
   ) as Array<{ data: string }>
-  return rows
 }

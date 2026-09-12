@@ -1,16 +1,36 @@
-// Notificações reais ficam pendentes até termos um development build
-// (Expo Go não suporta expo-notifications a partir do SDK 53+).
-// As funções abaixo são placeholders seguros — não quebram o app.
+import * as Notifications from 'expo-notifications'
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+})
 
 export async function pedirPermissao() {
-  console.log('notificações: pendente (precisa de development build)')
-  return false
+  const { status } = await Notifications.getPermissionsAsync()
+  if (status === 'granted') return true
+  const { status: novoStatus } = await Notifications.requestPermissionsAsync()
+  return novoStatus === 'granted'
 }
 
 export async function agendarLembrete(horario: string) {
-  console.log('notificações: pendente (precisa de development build)')
+  await cancelarLembrete()
+  const [horas, minutos] = horario.split(':').map(Number)
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'chama',
+      body: 'você ainda tem hábitos pendentes hoje',
+    },
+    trigger: {
+      type: 'daily' as any,
+      hour: horas,
+      minute: minutos,
+    },
+  })
 }
 
 export async function cancelarLembrete() {
-  console.log('notificações: pendente (precisa de development build)')
+  await Notifications.cancelAllScheduledNotificationsAsync()
 }

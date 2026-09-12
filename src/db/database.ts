@@ -9,7 +9,16 @@ export async function abrirBanco() {
   for (const sql of CRIAR_TABELAS) {
     await db.execAsync(sql)
   }
+  await migrar(db)
   return db
+}
+
+async function migrar(banco: SQLite.SQLiteDatabase) {
+  try {
+    await banco.execAsync('ALTER TABLE metas_semestrais ADD COLUMN emoji TEXT')
+  } catch (e) {
+    // coluna já existe, ignora
+  }
 }
 
 export function getBanco() {

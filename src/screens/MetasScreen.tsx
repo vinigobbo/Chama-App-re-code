@@ -4,6 +4,9 @@ import { useFocusEffect } from '@react-navigation/native'
 import { cores } from '../theme/colors'
 import { fontes, tamanhos } from '../theme/fonts'
 import { buscarMetas, criarMeta, buscarUltimoProgresso, registrarProgresso, excluirMeta } from '../db/metas'
+import { MetaSugerida } from '../data/metasSugeridas'
+import SugestaoMetaModal from '../components/SugestaoMetaModal'
+import ConfirmModal from '../components/ConfirmModal'
 
 function diasRestantes(dataFim: string) {
   const hoje = new Date()
@@ -16,12 +19,17 @@ export default function MetasScreen() {
   const [metas, setMetas] = useState<any[]>([])
   const [metaAberta, setMetaAberta] = useState<number | null>(null)
   const [novoValor, setNovoValor] = useState('')
+
+  const [sugestaoVisivel, setSugestaoVisivel] = useState(false)
   const [criando, setCriando] = useState(false)
   const [formNome, setFormNome] = useState('')
-  const [formTipo, setFormTipo] = useState('')
+  const [formTipo, setFormTipo] = useState('geral')
+  const [formEmoji, setFormEmoji] = useState('')
   const [formAlvo, setFormAlvo] = useState('')
   const [formUnidade, setFormUnidade] = useState('')
   const [formFim, setFormFim] = useState('')
+
+  const [metaParaExcluir, setMetaParaExcluir] = useState<{ id: number; nome: string } | null>(null)
 
   async function carregarDados() {
     const lista = await buscarMetas()
@@ -54,6 +62,20 @@ export default function MetasScreen() {
     await carregarDados()
   }
 
+  function escolherSugestao(sugestao: MetaSugerida | null) {
+    if (sugestao) {
+      setFormNome(sugestao.nome)
+      setFormTipo(sugestao.tipo)
+      setFormEmoji(sugestao.emoji)
+    } else {
+      setFormNome('')
+      setFormTipo('geral')
+      setFormEmoji('')
+    }
+    setSugestaoVisivel(false)
+    setCriando(true)
+  }
+
   async function adicionarMeta() {
     const alvo = parseFloat(formAlvo)
     if (!formNome.trim() || isNaN(alvo) || !formFim.trim()) return
@@ -61,13 +83,15 @@ export default function MetasScreen() {
     await criarMeta(
       formNome.trim(),
       formTipo.trim() || 'geral',
+      formEmoji.trim() || null,
       alvo,
       formUnidade.trim() || null,
       hoje,
       formFim.trim()
     )
     setFormNome('')
-    setFormTipo('')
+    setFormTipo('geral')
+    setFormEmoji('')
     setFormAlvo('')
     setFormUnidade('')
     setFormFim('')
@@ -75,8 +99,20 @@ export default function MetasScreen() {
     await carregarDados()
   }
 
-  async function removerMeta(id: number) {
-    await excluirMeta(id)
+  function cancelarCriacao() {
+    setCriando(false)
+    setFormNome('')
+    setFormTipo('geral')
+    setFormEmoji('')
+    setFormAlvo('')
+    setFormUnidade('')
+    setFormFim('')
+  }
+
+  async function confirmarExclusaoMeta() {
+    if (!metaParaExcluir) return
+    await excluirMeta(metaParaExcluir.id)
+    setMetaParaExcluir(null)
     await carregarDados()
   }
 
@@ -89,20 +125,30 @@ export default function MetasScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.titulo}>metas semestrais</Text>
-        <TouchableOpacity onPress={() => setCriando(!criando)}>
-          <Text style={styles.addBtn}>{criando ? '×' : '+'}</Text>
+        <TouchableOpacity onPress={() => setSugestaoVisivel(true)}>
+          <Text style={styles.addBtn}>+</Text>
         </TouchableOpacity>
       </View>
 
       {criando && (
         <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="nome da meta"
-            placeholderTextColor={cores.textoSuave}
-            value={formNome}
-            onChangeText={setFormNome}
-          />
+          <View style={styles.formRow}>
+            <TextInput
+              style={styles.emojiInput}
+              placeholder="🎯"
+              placeholderTextColor={cores.textoSuave}
+              value={formEmoji}
+              onChangeText={setFormEmoji}
+              maxLength={4}
+            />
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="nome da meta"
+              placeholderTextColor={cores.textoSuave}
+              value={formNome}
+              onChangeText={setFormNome}
+            />
+          </View>
           <View style={styles.formRow}>
             <TextInput
               style={[styles.input, { flex: 1 }]}
@@ -127,9 +173,14 @@ export default function MetasScreen() {
             value={formFim}
             onChangeText={setFormFim}
           />
-          <TouchableOpacity style={styles.salvarBtn} onPress={adicionarMeta}>
-            <Text style={styles.salvarTxt}>criar meta</Text>
-          </TouchableOpacity>
+          <View style={styles.formBotoes}>
+            <TouchableOpacity style={styles.cancelarBtn} onPress={cancelarCriacao}>
+              <Text style={styles.cancelarTxt}>cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.salvarBtn} onPress={adicionarMeta}>
+              <Text style={styles.salvarTxt}>criar meta</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
@@ -143,10 +194,10 @@ export default function MetasScreen() {
             <TouchableOpacity
               style={styles.card}
               onPress={() => setMetaAberta(metaAberta === item.id ? null : item.id)}
-              onLongPress={() => removerMeta(item.id)}
+              onLongPress={() => setMetaParaExcluir({ id: item.id, nome: item.nome })}
             >
               <View style={styles.cardHeader}>
-                <Text style={styles.cardNome}>{item.nome}</Text>
+                <Text style={styles.cardNome}>{item.emoji ? `${item.emoji}  ` : ''}{item.nome}</Text>
                 <Text style={[styles.cardDias, item.dias < 0 && { color: cores.erro }]}>
                   {item.dias >= 0 ? `faltam ${item.dias} dias` : 'encerrada'}
                 </Text>
@@ -179,6 +230,20 @@ export default function MetasScreen() {
           )}
         />
       )}
+
+      <SugestaoMetaModal
+        visivel={sugestaoVisivel}
+        onFechar={() => setSugestaoVisivel(false)}
+        onEscolher={escolherSugestao}
+      />
+
+      <ConfirmModal
+        visivel={metaParaExcluir !== null}
+        titulo="excluir meta?"
+        mensagem={`"${metaParaExcluir?.nome}" e todo o histórico de progresso serão apagados. Essa ação não pode ser desfeita.`}
+        onCancelar={() => setMetaParaExcluir(null)}
+        onConfirmar={confirmarExclusaoMeta}
+      />
     </View>
   )
 }
@@ -190,10 +255,17 @@ const styles = StyleSheet.create({
   addBtn: { color: cores.acento, fontSize: 28, lineHeight: 28 },
   form: { gap: 10, marginBottom: 24 },
   formRow: { flexDirection: 'row', gap: 10 },
+  emojiInput: {
+    backgroundColor: cores.fundoInput, color: cores.texto, fontSize: 20,
+    width: 52, textAlign: 'center', borderRadius: 8,
+  },
   input: {
     backgroundColor: cores.fundoInput, color: cores.texto, fontFamily: fontes.corpo,
     fontSize: tamanhos.corpo, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8,
   },
+  formBotoes: { flexDirection: 'row', justifyContent: 'flex-end', gap: 16, marginTop: 4 },
+  cancelarBtn: { paddingVertical: 12, paddingHorizontal: 4 },
+  cancelarTxt: { color: cores.textoSuave, fontFamily: fontes.corpo, fontSize: tamanhos.sub },
   salvarBtn: { backgroundColor: cores.acento, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   salvarTxt: { color: cores.fundo, fontFamily: fontes.corpo, fontSize: tamanhos.sub, fontWeight: '600' },
   vazio: { color: cores.textoSuave, fontFamily: fontes.corpo, fontSize: tamanhos.sub, textAlign: 'center', marginTop: 40 },

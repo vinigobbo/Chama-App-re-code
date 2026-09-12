@@ -2,20 +2,25 @@ import { getBanco } from './database'
 
 export async function buscarMetas() {
   const db = getBanco()
-  return await db.getAllAsync<{
+  const rows = await db.getAllAsync(
+    'SELECT * FROM metas_semestrais ORDER BY data_fim ASC'
+  ) as Array<{
     id: number
     nome: string
     tipo: string
+    emoji: string | null
     valor_alvo: number
     unidade: string | null
     data_inicio: string
     data_fim: string
-  }>('SELECT * FROM metas_semestrais ORDER BY data_fim ASC')
+  }>
+  return rows
 }
 
 export async function criarMeta(
   nome: string,
   tipo: string,
+  emoji: string | null,
   valorAlvo: number,
   unidade: string | null,
   dataInicio: string,
@@ -23,8 +28,8 @@ export async function criarMeta(
 ) {
   const db = getBanco()
   await db.runAsync(
-    'INSERT INTO metas_semestrais (nome, tipo, valor_alvo, unidade, data_inicio, data_fim) VALUES (?, ?, ?, ?, ?, ?)',
-    [nome, tipo, valorAlvo, unidade, dataInicio, dataFim]
+    'INSERT INTO metas_semestrais (nome, tipo, emoji, valor_alvo, unidade, data_inicio, data_fim) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [nome, tipo, emoji, valorAlvo, unidade, dataInicio, dataFim]
   )
 }
 
@@ -36,10 +41,10 @@ export async function excluirMeta(id: number) {
 
 export async function buscarUltimoProgresso(metaId: number) {
   const db = getBanco()
-  return await db.getFirstAsync<{ valor: number; data: string }>(
+  return await db.getFirstAsync(
     'SELECT valor, data FROM registros_progresso WHERE meta_id = ? ORDER BY data DESC LIMIT 1',
     [metaId]
-  )
+  ) as { valor: number; data: string } | null
 }
 
 export async function registrarProgresso(metaId: number, data: string, valor: number) {

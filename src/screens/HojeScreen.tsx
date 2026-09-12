@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { View, Text, FlatList, TouchableOpacity, TextInput, StyleSheet } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import { cores } from '../theme/colors'
 import { fontes, tamanhos } from '../theme/fonts'
-import { buscarHabitosAtivos, criarHabito } from '../db/habitos'
+import { buscarHabitosAtivos, criarHabito, desativarHabito } from '../db/habitos'
 import { buscarRegistrosDeHoje, marcarHabito, desmarcarHabito, calcularStreak } from '../db/registros'
+import ConfirmModal from '../components/ConfirmModal'
 
 function hojeISO() {
   return new Date().toISOString().slice(0, 10)
@@ -15,6 +16,7 @@ export default function HojeScreen() {
   const [streak, setStreak] = useState(0)
   const [novoNome, setNovoNome] = useState('')
   const [mostrarInput, setMostrarInput] = useState(false)
+  const [habitoParaExcluir, setHabitoParaExcluir] = useState<{ id: number; nome: string } | null>(null)
 
   async function carregarDados() {
     const hoje = hojeISO()
@@ -52,6 +54,17 @@ export default function HojeScreen() {
     await criarHabito(nome)
     setNovoNome('')
     setMostrarInput(false)
+    await carregarDados()
+  }
+
+  function pedirExclusao(id: number, nome: string) {
+    setHabitoParaExcluir({ id, nome })
+  }
+
+  async function confirmarExclusao() {
+    if (!habitoParaExcluir) return
+    await desativarHabito(habitoParaExcluir.id)
+    setHabitoParaExcluir(null)
     await carregarDados()
   }
 
@@ -96,6 +109,7 @@ export default function HojeScreen() {
               <TouchableOpacity
                 style={styles.habitoRow}
                 onPress={() => toggleHabito(item.id, item.feito)}
+                onLongPress={() => pedirExclusao(item.id, item.nome)}
               >
                 <View style={[
                   styles.marcador,
@@ -112,6 +126,14 @@ export default function HojeScreen() {
           />
         )}
       </View>
+
+      <ConfirmModal
+        visivel={habitoParaExcluir !== null}
+        titulo="excluir hábito?"
+        mensagem={`"${habitoParaExcluir?.nome}" será removido da lista. O histórico de dias já marcados fica preservado.`}
+        onCancelar={() => setHabitoParaExcluir(null)}
+        onConfirmar={confirmarExclusao}
+      />
     </View>
   )
 }

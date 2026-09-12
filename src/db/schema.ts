@@ -17,6 +17,7 @@ export const CRIAR_TABELAS = [
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nome TEXT NOT NULL,
     tipo TEXT NOT NULL,
+    emoji TEXT,
     valor_alvo REAL NOT NULL,
     unidade TEXT,
     data_inicio TEXT NOT NULL,
